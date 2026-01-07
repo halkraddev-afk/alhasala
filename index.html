@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 الحصالة - نظام تتبع مباريات البلايستيشن</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --gold: #fbbf24;
+            --silver: #9ca3af;
+            --bronze: #d97706;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: white;
+            line-height: 1.6;
+        }
+        .header {
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p { color: var(--gray-400); }
+        .loser-banner {
+            background: linear-gradient(90deg, #dc2626, #b91c1c);
+            padding: 1rem;
+            text-align: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: none;
+        }
+        .loser-banner.show { display: block; }
+        .loser-banner .loser-name { font-size: 1.5rem; color: #fef08a; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+        .tabs-container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .tabs { display: grid; grid-template-columns: repeat(4, 1fr); }
+        .tab {
+            padding: 1rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--gray-400);
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab:hover { background: rgba(255,255,255,0.05); color: white; }
+        .tab.active { color: var(--primary); background: rgba(99,102,241,0.1); border-bottom-color: var(--primary); }
+        .content-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-wrap: wrap;
+        }
+        .section-header h2 { font-size: 1.3rem; }
+        .teams-container {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        .team-box {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 2px solid transparent;
+        }
+        .team-box.team1 { border-color: rgba(239,68,68,0.5); }
+        .team-box.team2 { border-color: rgba(59,130,246,0.5); }
+        .team-box h3 { text-align: center; margin-bottom: 1rem; }
+        .team1 h3 { color: #ef4444; }
+        .team2 h3 { color: #3b82f6; }
+        .player-checkboxes { display: flex; flex-direction: column; gap: 0.75rem; }
+        .player-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            user-select: none;
+        }
+        .player-checkbox:hover { background: rgba(255,255,255,0.1); }
+        .player-checkbox.selected { background: rgba(99,102,241,0.2); border-color: var(--primary); }
+        .player-checkbox.disabled { opacity: 0.4; cursor: not-allowed; }
+        .player-checkbox input { display: none; }
+        .player-checkbox .checkmark {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--gray-500);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        .player-checkbox.selected .checkmark { background: var(--primary); border-color: var(--primary); }
+        .player-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        }
+        .player-name { font-weight: 500; }
+        .vs-divider { display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .vs-text {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #ef4444, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .score-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
+        .score-container {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1rem;
+            align-items: center;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .score-input-group { text-align: center; }
+        .score-input-group label { display: block; margin-bottom: 0.5rem; color: var(--gray-400); font-size: 0.9rem; }
+        .score-input {
+            width: 100%;
+            padding: 1rem;
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+        }
+        .score-input:focus { outline: none; border-color: var(--primary); }
+        .score-divider { font-size: 2rem; font-weight: 700; color: var(--gray-500); }
+        .winner-section { margin-top: 1.5rem; text-align: center; }
+        .winner-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 500px; margin: 1rem auto; }
+        .winner-btn {
+            padding: 1rem;
+            border: 2px solid;
+            border-radius: 12px;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s;
+        }
+        .winner-btn.team1-btn { border-color: rgba(239,68,68,0.5); }
+        .winner-btn.team2-btn { border-color: rgba(59,130,246,0.5); }
+        .winner-btn.team1-btn:hover, .winner-btn.team1-btn.selected { background: rgba(239,68,68,0.3); border-color: #ef4444; }
+        .winner-btn.team2-btn:hover, .winner-btn.team2-btn.selected { background: rgba(59,130,246,0.3); border-color: #3b82f6; }
+        .btn {
+            padding: 0.875rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(99,102,241,0.3); }
+        .btn-secondary { background: linear-gradient(135deg, var(--secondary), #059669); color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        .btn-full { width: 100%; margin-top: 1.5rem; padding: 1rem; font-size: 1.1rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+        .player-stat-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            padding: 1.25rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+        .player-stat-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+        .player-stat-card.loser-card { border-color: var(--danger); background: rgba(239,68,68,0.1); }
+        .player-stat-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .player-stat-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        }
+        .player-stat-name { font-size: 1.25rem; font-weight: 700; }
+        .player-stat-badge { margin-right: auto; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-loser { background: var(--danger); }
+        .badge-winner { background: var(--gold); color: black; }
+        .stat-rows { display: grid; gap: 0.5rem; }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        .stat-label { color: var(--gray-400); }
+        .stat-value { font-weight: 700; font-size: 1.1rem; }
+        .stat-value.wins { color: var(--secondary); }
+        .stat-value.losses { color: var(--danger); }
+        .results-grid { display: grid; gap: 1rem; }
+        .result-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .result-team { text-align: center; }
+        .result-team.winner { color: var(--gold); }
+        .result-team.loser { color: var(--gray-500); }
+        .result-players { font-weight: 600; margin-bottom: 0.25rem; }
+        .result-score-box { background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px; text-align: center; }
+        .result-score { font-size: 1.5rem; font-weight: 700; }
+        .result-date { grid-column: 1 / -1; text-align: center; color: var(--gray-500); font-size: 0.8rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); }
+        .winner-badge { font-size: 0.75rem; background: var(--gold); color: black; padding: 0.15rem 0.5rem; border-radius: 10px; font-weight: 600; }
+        .alert { padding: 1rem; margin-bottom: 1rem; border-radius: 10px; display: none; font-weight: 500; }
+        .alert.success { background: rgba(16,185,129,0.2); border: 1px solid var(--secondary); color: #6ee7b7; }
+        .alert.error { background: rgba(239,68,68,0.2); border: 1px solid var(--danger); color: #fca5a5; }
+        .alert.show { display: block; }
+        .spinner { display: none; border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--primary); border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 1.5rem auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .no-results { text-align: center; padding: 3rem; color: var(--gray-500); }
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .leaderboard-item.gold { background: linear-gradient(90deg, rgba(251,191,36,0.2), transparent); border-color: var(--gold); }
+        .leaderboard-item.silver { background: linear-gradient(90deg, rgba(156,163,175,0.2), transparent); border-color: var(--silver); }
+        .leaderboard-item.bronze { background: linear-gradient(90deg, rgba(217,119,6,0.2), transparent); border-color: var(--bronze); }
+        .leaderboard-rank { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+        .leaderboard-item.gold .leaderboard-rank { background: var(--gold); color: black; }
+        .leaderboard-item.silver .leaderboard-rank { background: var(--silver); color: black; }
+        .leaderboard-item.bronze .leaderboard-rank { background: var(--bronze); color: white; }
+        .leaderboard-info { flex: 1; }
+        .leaderboard-name { font-weight: 600; font-size: 1.1rem; }
+        .leaderboard-stats { color: var(--gray-400); font-size: 0.85rem; }
+        .leaderboard-winrate { font-size: 1.5rem; font-weight: 700; color: var(--secondary); }
+        @media (max-width: 768px) {
+            .tabs { grid-template-columns: repeat(2, 1fr); }
+            .teams-container { grid-template-columns: 1fr; }
+            .winner-buttons { grid-template-columns: 1fr; }
+            .header h1 { font-size: 1.5rem; }
+        }
+        .footer { text-align: center; padding: 2rem; color: var(--gray-500); font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div id="loser-banner" class="loser-banner">🏆 الحصالة الحالي: <span id="loser-name">-</span> 🎮</div>
+    <div class="header">
+        <div class="header-content">
+            <h1>🎮 الحصالة</h1>
+            <p>نظام تتبع مباريات البلايستيشن</p>
+        </div>
+    </div>
+    <div class="container">
+        <div id="alert" class="alert"></div>
+        <div class="tabs-container">
+            <div class="tabs">
+                <button class="tab active" data-tab="match">🎮 مباراة جديدة</button>
+                <button class="tab" data-tab="results">📋 السجل</button>
+                <button class="tab" data-tab="stats">📊 الإحصائيات</button>
+                <button class="tab" data-tab="leaderboard">🏆 الترتيب</button>
+            </div>
+        </div>
+
+        <div id="match-tab" class="tab-content active">
+            <div class="content-card">
+                <div class="section-header">
+                    <span>🎮</span>
+                    <h2>تسجيل مباراة جديدة</h2>
+                </div>
+                <div class="teams-container">
+                    <div class="team-box team1">
+                        <h3>🔴 الفريق الأول</h3>
+                        <div class="player-checkboxes" id="team1-players"></div>
+                    </div>
+                    <div class="vs-divider"><div class="vs-text">VS</div></div>
+                    <div class="team-box team2">
+                        <h3>🔵 الفريق الثاني</h3>
+                        <div class="player-checkboxes" id="team2-players"></div>
+                    </div>
+                </div>
+                <div class="score-section">
+                    <div class="score-container">
+                        <div class="score-input-group">
+                            <label>أهداف الفريق الأول</label>
+                            <input type="number" class="score-input" id="score1" min="0" value="0">
+                        </div>
+                        <div class="score-divider">-</div>
+                        <div class="score-input-group">
+                            <label>أهداف الفريق الثاني</label>
+                            <input type="number" class="score-input" id="score2" min="0" value="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="winner-section">
+                    <p style="color: var(--gray-400);">اختر الفريق الفائز:</p>
+                    <div class="winner-buttons">
+                        <button class="winner-btn team1-btn" id="winner1-btn" onclick="selectWinner(1)">🔴 الفريق الأول فاز</button>
+                        <button class="winner-btn team2-btn" id="winner2-btn" onclick="selectWinner(2)">🔵 الفريق الثاني فاز</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-full" id="save-btn" onclick="saveMatch()">💾 حفظ المباراة</button>
+                <div class="spinner" id="save-spinner"></div>
+            </div>
+        </div>
+
+        <div id="results-tab" class="tab-content">
+            <div class="content-card">
+                <div class="section-header">
+                    <span>📋</span>
+                    <h2>سجل المباريات</h2>
+                    <button class="btn btn-secondary" onclick="loadResults()" style="margin-right:auto;">🔄</button>
+                </div>
+                <div class="spinner" id="results-spinner"></div>
+                <div id="results-container" class="results-grid"></div>
+            </div>
+        </div>
+
+        <div id="stats-tab" class="tab-content">
+            <div class="content-card">
+                <div class="section-header">
+                    <span>📊</span>
+                    <h2>إحصائيات اللاعبين</h2>
+                </div>
+                <div class="spinner" id="stats-spinner"></div>
+                <div id="stats-container" class="stats-grid"></div>
+            </div>
+        </div>
+
+        <div id="leaderboard-tab" class="tab-content">
+            <div class="content-card">
+                <div class="section-header">
+                    <span>🏆</span>
+                    <h2>ترتيب اللاعبين</h2>
+                </div>
+                <div class="spinner" id="leaderboard-spinner"></div>
+                <div id="leaderboard-container"></div>
+            </div>
+        </div>
+    </div>
+    <div class="footer">🎮 الحصالة © 2025</div>
+
+    <script>
+    const URL = 'https://sheetdb.io/api/v1/zxo3v7e9mip9a';
+    const PLAYERS = [
+        { id: 'laith', name: 'ليث', emoji: '🎮' },
+        { id: 'moheeb', name: 'مهيب', emoji: '🎯' },
+        { id: 'mahmoud', name: 'محمود', emoji: '⚽' },
+        { id: 'azhar', name: 'ازهر', emoji: '🏆' },
+        { id: 'homam', name: 'همام', emoji: '🔥' }
+    ];
+
+    let team1Selection = [], team2Selection = [], selectedWinner = null, allMatches = [];
+    const $ = id => document.getElementById(id);
+
+    function showAlert(msg, type) {
+        const alert = $('alert');
+        alert.textContent = msg;
+        alert.className = `alert ${type} show`;
+        setTimeout(() => alert.classList.remove('show'), 4000);
+    }
+
+    function formatDate(d) {
+        const date = new Date(d);
+        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    }
+
+    function formatTime(d) {
+        const date = new Date(d);
+        const hours = String(date.getHours()).padStart(2,'0');
+        const minutes = String(date.getMinutes()).padStart(2,'0');
+        return `${hours}h${minutes}`;
+    }
+
+    async function apiGet() {
+        const res = await fetch(URL);
+        return await res.json();
+    }
+
+    async function apiPost(data) {
+        const res = await fetch(URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: [data] })
+        });
+        return await res.json();
+    }
+
+    function initTabs() {
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const name = this.dataset.tab;
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                $(name + '-tab').classList.add('active');
+                if (name === 'results') loadResults();
+                if (name === 'stats') loadStats();
+                if (name === 'leaderboard') loadLeaderboard();
+            });
+        });
+    }
+
+    function renderPlayers() {
+        const t1 = $('team1-players'), t2 = $('team2-players');
+        const html = (team) => PLAYERS.map(p => `
+            <div class="player-checkbox" data-player="${p.id}" data-team="${team}">
+                <span class="checkmark">✓</span>
+                <span class="player-avatar">${p.emoji}</span>
+                <span class="player-name">${p.name}</span>
+            </div>
+        `).join('');
+        t1.innerHTML = html(1);
+        t2.innerHTML = html(2);
+        document.querySelectorAll('.player-checkbox').forEach(el => {
+            el.addEventListener('click', handleClick);
+        });
+    }
+
+    function handleClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const cb = e.currentTarget;
+        if (cb.classList.contains('disabled')) return;
+        const pid = cb.dataset.player;
+        const team = parseInt(cb.dataset.team);
+        
+        if (team === 1) {
+            const idx = team1Selection.indexOf(pid);
+            if (idx > -1) {
+                team1Selection.splice(idx, 1);
+            } else if (team1Selection.length < 2) {
+                team1Selection.push(pid);
+            }
+        } else {
+            const idx = team2Selection.indexOf(pid);
+            if (idx > -1) {
+                team2Selection.splice(idx, 1);
+            } else if (team2Selection.length < 2) {
+                team2Selection.push(pid);
+            }
+        }
+        updateUI();
+    }
+
+    function updateUI() {
+        document.querySelectorAll('.player-checkbox').forEach(cb => {
+            const pid = cb.dataset.player, team = parseInt(cb.dataset.team);
+            const inT1 = team1Selection.includes(pid), inT2 = team2Selection.includes(pid);
+            cb.classList.remove('selected', 'disabled');
+            if (team === 1) {
+                if (inT1) cb.classList.add('selected');
+                else if (inT2 || team1Selection.length >= 2) cb.classList.add('disabled');
+            } else {
+                if (inT2) cb.classList.add('selected');
+                else if (inT1 || team2Selection.length >= 2) cb.classList.add('disabled');
+            }
+        });
+        const n1 = team1Selection.map(id => PLAYERS.find(p => p.id === id)?.name).join(' و ');
+        const n2 = team2Selection.map(id => PLAYERS.find(p => p.id === id)?.name).join(' و ');
+        $('winner1-btn').innerHTML = `🔴 ${n1 || 'الفريق الأول'} فاز`;
+        $('winner2-btn').innerHTML = `🔵 ${n2 || 'الفريق الثاني'} فاز`;
+    }
+
+    window.selectWinner = function(team) {
+        selectedWinner = team;
+        $('winner1-btn').classList.toggle('selected', team === 1);
+        $('winner2-btn').classList.toggle('selected', team === 2);
+    };
+
+    window.saveMatch = async function() {
+        if (team1Selection.length !== 2) return showAlert('⚠️ اختر لاعبين للفريق الأول', 'error');
+        if (team2Selection.length !== 2) return showAlert('⚠️ اختر لاعبين للفريق الثاني', 'error');
+        if (!selectedWinner) return showAlert('⚠️ اختر الفريق الفائز', 'error');
+
+        $('save-btn').disabled = true;
+        $('save-spinner').style.display = 'block';
+
+        try {
+            const now = new Date();
+            await apiPost({
+                team1_player1: team1Selection[0],
+                team1_player2: team1Selection[1],
+                team2_player1: team2Selection[0],
+                team2_player2: team2Selection[1],
+                score1: $('score1').value,
+                score2: $('score2').value,
+                winner: selectedWinner.toString(),
+                date: formatDate(now),
+                time: formatTime(now)
+            });
+            showAlert('✅ تم حفظ المباراة!', 'success');
+            team1Selection = []; team2Selection = []; selectedWinner = null;
+            $('score1').value = '0'; $('score2').value = '0';
+            $('winner1-btn').classList.remove('selected');
+            $('winner2-btn').classList.remove('selected');
+            updateUI();
+            allMatches = [];
+            loadLoserBanner();
+            setTimeout(() => document.querySelector('[data-tab="results"]').click(), 1500);
+        } catch (e) {
+            showAlert('❌ فشل الحفظ', 'error');
+        } finally {
+            $('save-btn').disabled = false;
+            $('save-spinner').style.display = 'none';
+        }
+    };
+
+    window.loadResults = async function() {
+        $('results-spinner').style.display = 'block';
+        $('results-container').innerHTML = '';
+        try {
+            allMatches = await apiGet();
+            if (!Array.isArray(allMatches)) allMatches = [];
+            if (allMatches.length === 0) {
+                $('results-container').innerHTML = '<div class="no-results">📭 لا توجد مباريات</div>';
+            } else {
+                $('results-container').innerHTML = [...allMatches].reverse().map(m => {
+                    const t1 = getNames([m.team1_player1, m.team1_player2]);
+                    const t2 = getNames([m.team2_player1, m.team2_player2]);
+                    const w = parseInt(m.winner) || 0;
+                    const s1 = m.score1 || '0';
+                    const s2 = m.score2 || '0';
+                    const date = m.date || '-';
+                    const time = m.time || '-';
+                    return `<div class="result-card">
+                        <div class="result-team ${w===1?'winner':'loser'}">
+                            <div class="result-players">${t1}</div>
+                            ${w===1?'<span class="winner-badge">🏆</span>':''}
+                        </div>
+                        <div class="result-score-box"><div class="result-score">${s1} - ${s2}</div></div>
+                        <div class="result-team ${w===2?'winner':'loser'}">
+                            <div class="result-players">${t2}</div>
+                            ${w===2?'<span class="winner-badge">🏆</span>':''}
+                        </div>
+                        <div class="result-date">📅 ${date} | ⏰ ${time}</div>
+                    </div>`;
+                }).join('');
+            }
+        } catch (e) {
+            $('results-container').innerHTML = '<div class="no-results">❌ فشل التحميل</div>';
+        } finally {
+            $('results-spinner').style.display = 'none';
+        }
+    };
+
+    window.loadStats = async function() {
+        $('stats-spinner').style.display = 'block';
+        $('stats-container').innerHTML = '';
+        try {
+            if (!allMatches.length) allMatches = await apiGet();
+            if (!Array.isArray(allMatches)) allMatches = [];
+            const stats = calcStats(allMatches);
+            const loser = findLoser(stats);
+            const best = findBest(stats);
+            $('stats-container').innerHTML = PLAYERS.map(p => {
+                const s = stats[p.id] || {wins:0,losses:0,goalsFor:0,goalsAgainst:0,matches:0};
+                const isLoser = loser === p.id;
+                const isBest = best === p.id && s.matches > 0;
+                const gd = s.goalsFor - s.goalsAgainst;
+                const wr = s.matches > 0 ? Math.round((s.wins/s.matches)*100) : 0;
+                return `<div class="player-stat-card ${isLoser?'loser-card':''}">
+                    <div class="player-stat-header">
+                        <div class="player-stat-avatar">${p.emoji}</div>
+                        <div class="player-stat-name">${p.name}</div>
+                        ${isLoser?'<span class="player-stat-badge badge-loser">🗑️ الحصالة</span>':''}
+                        ${isBest?'<span class="player-stat-badge badge-winner">👑 الأفضل</span>':''}
+                    </div>
+                    <div class="stat-rows">
+                        <div class="stat-row"><span class="stat-label">المباريات</span><span class="stat-value">${s.matches}</span></div>
+                        <div class="stat-row"><span class="stat-label">الانتصارات</span><span class="stat-value wins">${s.wins}</span></div>
+                        <div class="stat-row"><span class="stat-label">الخسائر</span><span class="stat-value losses">${s.losses}</span></div>
+                        <div class="stat-row"><span class="stat-label">الأهداف المسجلة</span><span class="stat-value" style="color:var(--gold)">${s.goalsFor}</span></div>
+                        <div class="stat-row"><span class="stat-label">الأهداف المستقبلة</span><span class="stat-value">${s.goalsAgainst}</span></div>
+                        <div class="stat-row"><span class="stat-label">فارق الأهداف</span><span class="stat-value" style="color:${gd>=0?'var(--secondary)':'var(--danger)'}">${gd>=0?'+':''}${gd}</span></div>
+                        <div class="stat-row"><span class="stat-label">نسبة الفوز</span><span class="stat-value" style="color:var(--primary)">${wr}%</span></div>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            $('stats-container').innerHTML = '<div class="no-results">❌ فشل التحميل</div>';
+        } finally {
+            $('stats-spinner').style.display = 'none';
+        }
+    };
+
+    window.loadLeaderboard = async function() {
+        $('leaderboard-spinner').style.display = 'block';
+        $('leaderboard-container').innerHTML = '';
+        try {
+            if (!allMatches.length) allMatches = await apiGet();
+            if (!Array.isArray(allMatches)) allMatches = [];
+            const stats = calcStats(allMatches);
+            const sorted = PLAYERS.map(p => ({...p, s: stats[p.id] || {wins:0,losses:0,goalsFor:0,goalsAgainst:0,matches:0}}))
+                .sort((a,b) => {
+                    if (b.s.wins !== a.s.wins) return b.s.wins - a.s.wins;
+                    return (b.s.goalsFor - b.s.goalsAgainst) - (a.s.goalsFor - a.s.goalsAgainst);
+                });
+            $('leaderboard-container').innerHTML = sorted.map((p, i) => {
+                const cls = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+                const wr = p.s.matches > 0 ? Math.round((p.s.wins/p.s.matches)*100) : 0;
+                return `<div class="leaderboard-item ${cls}">
+                    <div class="leaderboard-rank">${i+1}</div>
+                    <div class="player-stat-avatar">${p.emoji}</div>
+                    <div class="leaderboard-info">
+                        <div class="leaderboard-name">${p.name}</div>
+                        <div class="leaderboard-stats">${p.s.wins} فوز | ${p.s.losses} خسارة | ${p.s.goalsFor} هدف</div>
+                    </div>
+                    <div class="leaderboard-winrate">${wr}%</div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            $('leaderboard-container').innerHTML = '<div class="no-results">❌ فشل التحميل</div>';
+        } finally {
+            $('leaderboard-spinner').style.display = 'none';
+        }
+    };
+
+    function calcStats(matches) {
+        const stats = {};
+        PLAYERS.forEach(p => stats[p.id] = {wins:0,losses:0,goalsFor:0,goalsAgainst:0,matches:0});
+        matches.forEach(m => {
+            const t1 = [m.team1_player1, m.team1_player2];
+            const t2 = [m.team2_player1, m.team2_player2];
+            const s1 = parseInt(m.score1)||0, s2 = parseInt(m.score2)||0;
+            const w = parseInt(m.winner);
+            t1.forEach(pid => {
+                if (stats[pid]) {
+                    stats[pid].matches++;
+                    stats[pid].goalsFor += s1;
+                    stats[pid].goalsAgainst += s2;
+                    if (w===1) stats[pid].wins++; else stats[pid].losses++;
+                }
+            });
+            t2.forEach(pid => {
+                if (stats[pid]) {
+                    stats[pid].matches++;
+                    stats[pid].goalsFor += s2;
+                    stats[pid].goalsAgainst += s1;
+                    if (w===2) stats[pid].wins++; else stats[pid].losses++;
+                }
+            });
+        });
+        return stats;
+    }
+
+    function findLoser(stats) {
+        let loser = null, maxL = -1, minW = Infinity;
+        PLAYERS.forEach(p => {
+            const s = stats[p.id];
+            if (s.matches > 0 && (s.losses > maxL || (s.losses === maxL && s.wins < minW))) {
+                maxL = s.losses; minW = s.wins; loser = p.id;
+            }
+        });
+        return loser;
+    }
+
+    function findBest(stats) {
+        let best = null, maxW = -1, bestGD = -Infinity;
+        PLAYERS.forEach(p => {
+            const s = stats[p.id];
+            const gd = s.goalsFor - s.goalsAgainst;
+            if (s.matches > 0 && (s.wins > maxW || (s.wins === maxW && gd > bestGD))) {
+                maxW = s.wins; bestGD = gd; best = p.id;
+            }
+        });
+        return best;
+    }
+
+    function getNames(ids) {
+        return ids.map(id => PLAYERS.find(p => p.id === id)?.name || id).join(' و ');
+    }
+
+    async function loadLoserBanner() {
+        try {
+            if (!allMatches.length) allMatches = await apiGet();
+            if (!Array.isArray(allMatches)) allMatches = [];
+            const stats = calcStats(allMatches);
+            const loser = findLoser(stats);
+            if (loser) {
+                const p = PLAYERS.find(x => x.id === loser);
+                $('loser-name').textContent = p ? `${p.emoji} ${p.name}` : '-';
+                $('loser-banner').classList.add('show');
+            }
+        } catch (e) {}
+    }
+
+    function init() {
+        initTabs();
+        renderPlayers();
+        loadLoserBanner();
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+    </script>
+</body>
+</html>
